@@ -1,0 +1,4 @@
+inventory.yml          diff=ansible-vault
+group_vars/**          diff=ansible-vault
+host_vars/**           diff=ansible-vault
+playbooks/private/**   diff=ansible-vault

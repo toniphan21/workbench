@@ -1,0 +1,4 @@
+- name: Mac
+  hosts: "{{ target }}"
+  roles:
+    - { role: lazyvim, tags: [lazyvim] }
