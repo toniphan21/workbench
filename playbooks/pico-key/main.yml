@@ -1,0 +1,14 @@
+- name: Pico key build and install
+  hosts: "{{ target | default([]) }}"
+  gather_facts: true
+  vars:
+    picotool_version: "2.3.1"
+    picotool_release_tag: "v2.3.1-0"
+    picotool_url: https://github.com/raspberrypi/pico-sdk-tools/releases/download/
+    download_dir: "{{ playbook_dir }}/../../.cache/picotool"
+
+  tasks:
+    - name: Download picotool
+      ansible.builtin.import_tasks: ./download-picotool.yml
+      vars:
+        step: Download picotool

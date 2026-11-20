@@ -1,0 +1,81 @@
+- name: Download picotool
+  block:
+    - name: "{{ step }} | Work out the platform key"
+      ansible.builtin.set_fact:
+        picotool_platform: >-
+          {{ 'mac' if ansible_facts['system'] == 'Darwin' else ansible_facts['architecture'] ~ '-lin' }}
+
+    - name: "{{ step }} | Show what was detected"
+      ansible.builtin.debug:
+        msg: "{{ ansible_facts['system'] }} / {{ ansible_facts['architecture'] }} → {{ picotool_platform }}"
+
+    - name: "{{ step }} | Work out the asset name"
+      ansible.builtin.set_fact:
+        picotool_file: >-
+          picotool-{{ picotool_version }}-{{ 'mac.zip' if ansible_facts['system'] == 'Darwin'
+          else ansible_facts['architecture'] ~ '-lin.tar.gz' }}
+
+    - name: "{{ step }} | Check for a cached archive"
+      ansible.builtin.stat:
+        path: "{{ download_dir }}/{{ picotool_file }}"
+      register: picotool_cached
+
+    - name: "{{ step }} | Download picotool"
+      when: not picotool_cached.stat.exists
+      block:
+        - name: "{{ step }} | Get release metadata from GitHub"
+          ansible.builtin.uri:
+            url: "https://api.github.com/repos/raspberrypi/pico-sdk-tools/releases/tags/{{ picotool_release_tag }}"
+            headers:
+              Accept: application/vnd.github+json
+            return_content: true
+          register: picotool_release
+
+        - name: "{{ step }} | Pick our asset"
+          ansible.builtin.set_fact:
+            picotool_asset: >-
+              {{ picotool_release.json.assets
+                | selectattr('name', 'equalto', picotool_file)
+                | first | default({}) }}
+
+        - name: "{{ step }} | Asset must exist and have a digest"
+          ansible.builtin.assert:
+            that:
+              - picotool_asset.digest is defined
+              - picotool_asset.digest is match('^sha256:')
+            fail_msg: "No asset '{{ picotool_file }}' with a sha256 digest in {{ picotool_release_tag }}"
+
+        - name: "{{ step }} | Show asset url"
+          ansible.builtin.debug:
+            msg: "Download {{ picotool_asset.browser_download_url }}"
+
+        - name: "{{ step }} | Create download dir"
+          ansible.builtin.file:
+            path: "{{ download_dir }}"
+            state: directory
+            mode: "0755"
+
+        - name: "{{ step }} | Download and verify"
+          ansible.builtin.get_url:
+            url: "{{ picotool_asset.browser_download_url }}"
+            dest: "{{ download_dir }}/{{ picotool_file }}"
+            checksum: "{{ picotool_asset.digest }}"   # already "sha256:..."
+            mode: "0644"
+
+    - name: "{{ step }} | Unpack"
+      ansible.builtin.unarchive:
+        src: "{{ download_dir }}/{{ picotool_file }}"
+        dest: "{{ download_dir }}"
+        remote_src: true
+        creates: "{{ download_dir }}/picotool"
+
+    - name: "{{ step }} | Read installed version"
+      ansible.builtin.command: "{{ download_dir }}/picotool/picotool version -s"
+      register: picotool_installed
+      changed_when: false
+
+    - name: "{{ step }} | Version must match the pin"
+      ansible.builtin.assert:
+        that: picotool_installed.stdout | trim == picotool_version
+        fail_msg: "picotool {{ picotool_installed.stdout }} != pinned {{ picotool_version }}"
+

@@ -1,0 +1,6 @@
+exclude_paths:
+  - inventory.yml
+  - group_vars/
+  - host_vars/
+  - playbooks/private/
+

@@ -93,7 +93,7 @@ ansible-playbook playbooks/<playbook>/main.yml -e target=macs --check --diff
 
 ## Layout
 
-```
+```txt
 ansible.cfg
 inventory.yml            # encrypted
 inventory.example.yml
