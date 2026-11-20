@@ -34,6 +34,20 @@ ansible --version
 ansible-vault --version
 ```
 
+Install the collections some playbooks depend on:
+
+```sh
+ansible-galaxy collection install -r requirements.yml
+```
+
+Some of those collections' modules need Python libraries that aren't
+part of Ansible itself. Since Ansible runs in pipx's isolated venv,
+install them with `pipx inject` rather than `pip install`:
+
+```sh
+pipx inject ansible requests
+```
+
 ## Vault
 
 Generate the vault password (once):
@@ -95,6 +109,7 @@ ansible-playbook playbooks/<playbook>/main.yml -e target=macs --check --diff
 
 ```txt
 ansible.cfg
+requirements.yml
 inventory.yml            # encrypted
 inventory.example.yml
 playbooks/

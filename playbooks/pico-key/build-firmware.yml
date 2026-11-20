@@ -1,0 +1,41 @@
+- name: Build firmware
+  block:
+    - name: "Build firmware: build docker image"
+      community.docker.docker_image:
+        docker_host: "{{ docker_socket | default(omit) }}"
+        name: pico-fido2-builder
+        build:
+          path: "{{ playbook_dir }}/container"
+          args:
+            picosdk_version: "{{ picotool_version }}" # sdk and picotool need to be the same version
+            picofido2_ref: "{{ picofido2_ref }}"
+        source: build
+        force_source: true
+      register: pico_fido2_image
+
+    - name: "Build firmware: show build output"
+      ansible.builtin.debug:
+        msg: "{{ pico_fido2_image.stdout.split('\n') }}"
+
+    - name: "Build firmware: remove previous build output"
+      ansible.builtin.file:
+        path: "{{ build_output_dir }}"
+        state: absent
+
+    - name: "Build firmware: extract build output from image"
+      block:
+        - name: "Build firmware: create extraction container"
+          ansible.builtin.command:
+            cmd: docker create --name pico-fido2-extract pico-fido2-builder
+          changed_when: true
+
+        - name: "Build firmware: copy build dir to host"
+          ansible.builtin.command:
+            cmd: "docker cp pico-fido2-extract:/src/pico-fido2/build {{ build_output_dir }}"
+          changed_when: true
+      always:
+        - name: "Build firmware: remove extraction container"
+          ansible.builtin.command:
+            cmd: docker rm -f pico-fido2-extract
+          failed_when: false
+          changed_when: true
