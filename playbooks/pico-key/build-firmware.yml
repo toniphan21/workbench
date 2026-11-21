@@ -54,3 +54,16 @@
       ansible.builtin.assert:
         that: pico_fido2_info.stdout is search('target chip:\s+RP2350')
         fail_msg: "Unexpected target chip in firmware info:\n{{ pico_fido2_info.stdout }}"
+
+    - name: "Build firmware: ensure dist dir"
+      ansible.builtin.file:
+        path: "{{ dist }}"
+        state: directory
+        mode: "0755"
+
+    - name: "Build firmware: copy firmware to dist"
+      ansible.builtin.copy:
+        src: "{{ pico_fido2_dir }}/pico_fido2.uf2"
+        dest: "{{ dist }}/pico_fido2.uf2"
+        mode: "0644"
+        remote_src: true

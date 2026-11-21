@@ -65,3 +65,9 @@
         content: >-
           {{ otp_stage1 | combine(otp_stage2, otp_stage3, recursive=true) | to_nice_json }}
         mode: "0644"
+
+    - name: "Sign firmware: copy instructions to dist"
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/instruction.md"
+        dest: "{{ dist }}/README.md"
+        mode: "0644"

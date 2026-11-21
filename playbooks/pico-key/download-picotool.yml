@@ -78,3 +78,15 @@
       ansible.builtin.assert:
         that: picotool_installed.stdout | trim == picotool_version
         fail_msg: "picotool {{ picotool_installed.stdout }} != pinned {{ picotool_version }}"
+
+    - name: "Download picotool: ensure dist dir"
+      ansible.builtin.file:
+        path: "{{ dist }}"
+        state: directory
+        mode: "0755"
+
+    - name: "Download picotool: copy picotool to dist"
+      ansible.builtin.copy:
+        src: "{{ build_dir }}/picotool"
+        dest: "{{ dist }}"
+        remote_src: true
