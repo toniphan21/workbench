@@ -17,7 +17,7 @@
 
     - name: "Download picotool: check for a cached archive"
       ansible.builtin.stat:
-        path: "{{ download_dir }}/{{ picotool_file }}"
+        path: "{{ picotool_dir }}/{{ picotool_file }}"
       register: picotool_cached
 
     - name: "Download picotool: download picotool"
@@ -51,26 +51,26 @@
 
         - name: "Download picotool: create download dir"
           ansible.builtin.file:
-            path: "{{ download_dir }}"
+            path: "{{ picotool_dir }}"
             state: directory
             mode: "0755"
 
         - name: "Download picotool: download and verify"
           ansible.builtin.get_url:
             url: "{{ picotool_asset.browser_download_url }}"
-            dest: "{{ download_dir }}/{{ picotool_file }}"
+            dest: "{{ picotool_dir }}/{{ picotool_file }}"
             checksum: "{{ picotool_asset.digest }}"   # already "sha256:..."
             mode: "0644"
 
     - name: "Download picotool: unpack"
       ansible.builtin.unarchive:
-        src: "{{ download_dir }}/{{ picotool_file }}"
-        dest: "{{ download_dir }}"
+        src: "{{ picotool_dir }}/{{ picotool_file }}"
+        dest: "{{ picotool_dir }}"
         remote_src: true
-        creates: "{{ download_dir }}/picotool"
+        creates: "{{ picotool_dir }}/picotool"
 
     - name: "Download picotool: read installed version"
-      ansible.builtin.command: "{{ download_dir }}/picotool/picotool version -s"
+      ansible.builtin.command: "{{ picotool_dir }}/picotool/picotool version -s"
       register: picotool_installed
       changed_when: false
 

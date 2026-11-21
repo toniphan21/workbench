@@ -39,3 +39,18 @@
             cmd: docker rm -f pico-fido2-extract
           failed_when: false
           changed_when: true
+
+    - name: "Build firmware: verify firmware"
+      ansible.builtin.command:
+        cmd: "{{ picotool_dir }}/picotool/picotool info {{ build_output_dir }}/pico_fido2.uf2"
+      register: pico_fido2_info
+      changed_when: false
+
+    - name: "Build firmware: show verify output"
+      ansible.builtin.debug:
+        msg: "{{ pico_fido2_info.stdout.split('\n') }}"
+
+    - name: "Build firmware: target chip must be RP2350"
+      ansible.builtin.assert:
+        that: pico_fido2_info.stdout is search('target chip:\s+RP2350')
+        fail_msg: "Unexpected target chip in firmware info:\n{{ pico_fido2_info.stdout }}"

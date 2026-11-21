@@ -6,8 +6,8 @@
     picotool_release_tag: "v2.3.1-0"
     picofido2_ref: "v7.4.2-librekeys"
     picotool_url: https://github.com/raspberrypi/pico-sdk-tools/releases/download/
-    download_dir: "{{ playbook_dir }}/../../.cache/picotool"
-    build_output_dir: "{{ playbook_dir }}/../../.cache/pico-fido2-build"
+    picotool_dir: "{{ playbook_dir }}/build"
+    build_output_dir: "{{ playbook_dir }}/build/pico-fido2"
 
   tasks:
     - name: Download picotool
@@ -15,4 +15,3 @@
 
     - name: Build firmware
       ansible.builtin.import_tasks: ./build-firmware.yml
-      tags: [never, build]
