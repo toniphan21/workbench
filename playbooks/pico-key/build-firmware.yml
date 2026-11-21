@@ -19,7 +19,7 @@
 
     - name: "Build firmware: remove previous build output"
       ansible.builtin.file:
-        path: "{{ build_output_dir }}"
+        path: "{{ pico_fido2_dir }}"
         state: absent
 
     - name: "Build firmware: extract build output from image"
@@ -31,7 +31,7 @@
 
         - name: "Build firmware: copy build dir to host"
           ansible.builtin.command:
-            cmd: "docker cp pico-fido2-extract:/src/pico-fido2/build {{ build_output_dir }}"
+            cmd: "docker cp pico-fido2-extract:/src/pico-fido2/build {{ pico_fido2_dir }}"
           changed_when: true
       always:
         - name: "Build firmware: remove extraction container"
@@ -42,7 +42,7 @@
 
     - name: "Build firmware: verify firmware"
       ansible.builtin.command:
-        cmd: "{{ picotool_dir }}/picotool/picotool info {{ build_output_dir }}/pico_fido2.uf2"
+        cmd: "{{ build_dir }}/picotool/picotool info {{ pico_fido2_dir }}/pico_fido2.uf2"
       register: pico_fido2_info
       changed_when: false
 
