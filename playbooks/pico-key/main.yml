@@ -6,11 +6,26 @@
     picotool_release_tag: "v2.3.1-0"
     picofido2_ref: "v7.4.2-librekeys"
     picotool_url: https://github.com/raspberrypi/pico-sdk-tools/releases/download/
-    build_dir: "{{ playbook_dir }}/build"
-    pico_fido2_dir: "{{ playbook_dir }}/build/pico-fido2"
-    dist: "{{ playbook_dir }}/dist"
+    base_dir: >-
+      {{ playbook_dir
+         if (ansible_connection | default('ssh')) == 'local'
+         else ansible_facts['user_dir'] ~ '/pico-key'
+      }}
+    build_dir: "{{ base_dir }}/build"
+    picofido2_dir: "{{ base_dir }}/build/pico-fido2"
+    dist: "{{ base_dir }}/dist"
 
   tasks:
+    - name: Preflight info
+      ansible.builtin.debug:
+        msg:
+          picotool_version: "{{ picotool_version }}"
+          picofido2_ref: "{{ picofido2_ref }}"
+          base_dir: "{{ base_dir }}"
+          build_dir: "{{ build_dir }}"
+          picofido2_dir: "{{ picofido2_dir }}"
+          dist: "{{ dist }}"
+
     - name: Download picotool
       ansible.builtin.import_tasks: ./download-picotool.yml
 

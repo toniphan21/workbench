@@ -1,11 +1,17 @@
 - name: Build firmware
   block:
+    - name: "Build firmware: copy build context"
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/container"
+        dest: "{{ build_dir }}"
+      register: ctx
+
     - name: "Build firmware: build docker image"
       community.docker.docker_image:
         docker_host: "{{ docker_socket | default(omit) }}"
         name: pico-fido2-builder
         build:
-          path: "{{ playbook_dir }}/container"
+          path: "{{ build_dir }}/container"
           args:
             picosdk_version: "{{ picotool_version }}" # sdk and picotool need to be the same version
             picofido2_ref: "{{ picofido2_ref }}"
@@ -19,7 +25,7 @@
 
     - name: "Build firmware: remove previous build output"
       ansible.builtin.file:
-        path: "{{ pico_fido2_dir }}"
+        path: "{{ picofido2_dir }}"
         state: absent
 
     - name: "Build firmware: extract build output from image"
@@ -31,7 +37,7 @@
 
         - name: "Build firmware: copy build dir to host"
           ansible.builtin.command:
-            cmd: "docker cp pico-fido2-extract:/src/pico-fido2/build {{ pico_fido2_dir }}"
+            cmd: "docker cp pico-fido2-extract:/src/pico-fido2/build {{ picofido2_dir }}"
           changed_when: true
       always:
         - name: "Build firmware: remove extraction container"
@@ -42,7 +48,7 @@
 
     - name: "Build firmware: verify firmware"
       ansible.builtin.command:
-        cmd: "{{ build_dir }}/picotool/picotool info {{ pico_fido2_dir }}/pico_fido2.uf2"
+        cmd: "{{ build_dir }}/picotool/picotool info {{ picofido2_dir }}/pico_fido2.uf2"
       register: pico_fido2_info
       changed_when: false
 
@@ -63,7 +69,7 @@
 
     - name: "Build firmware: copy firmware to dist"
       ansible.builtin.copy:
-        src: "{{ pico_fido2_dir }}/pico_fido2.uf2"
+        src: "{{ picofido2_dir }}/pico_fido2.uf2"
         dest: "{{ dist }}/pico_fido2.uf2"
         mode: "0644"
         remote_src: true

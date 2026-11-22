@@ -22,11 +22,12 @@
           register: pico_fido2_key
           changed_when: true
 
-        - name: "Sign by keypair: encrypt and store in the variable to dist"
-          ansible.builtin.command:
-            cmd: "ansible-vault encrypt - --vault-password-file {{ vault_pass_file }} --output {{ dist }}/{{ key_name }}.pem.vault"
-            stdin: "{{ pico_fido2_key.stdout }}"
-          changed_when: true
+        - name: "Sign by keypair: encrypt and store in dist"
+          ansible.builtin.copy:
+            content: "{{ (pico_fido2_key.stdout ~ '\n') | ansible.builtin.vault(vault_pass_file) }}"
+            dest: "{{ dist }}/{{ key_name }}.pem.vault"
+            mode: "0600"
+            decrypt: false
 
         - name: "Sign by keypair: store public key to dist"
           ansible.builtin.command:
@@ -43,25 +44,36 @@
             - "{{ dist }}/{{ key_name }}.pub.pem"
 
     - name: "Sign by keypair: sign key0"
-      vars:
-        sign_tmp_key: "{{ dist }}/.{{ key_name }}.tmp.pem"
       block:
+        - name: "Sign by keypair: read encrypted key"
+          ansible.builtin.slurp:
+            src: "{{ dist }}/{{ key_name }}.pem.vault"
+          register: pico_fido2_vault_key
+          no_log: true
+
+        - name: "Sign by keypair: create temp key file"
+          ansible.builtin.tempfile:
+            state: file
+            suffix: .pem
+          register: sign_tmp_key
+
         - name: "Sign by keypair: write decrypted key to temp file"
           ansible.builtin.copy:
-            content: "{{ lookup('ansible.builtin.unvault', dist ~ '/' ~ key_name ~ '.pem.vault') }}"
-            dest: "{{ sign_tmp_key }}"
+            content: "{{ pico_fido2_vault_key.content | b64decode | ansible.builtin.unvault(vault_pass_file) }}"
+            dest: "{{ sign_tmp_key.path }}"
             mode: "0600"
+            decrypt: false
           no_log: true
 
         - name: "Sign firmware: picotool seal"
           ansible.builtin.command: >-
             {{ build_dir }}/picotool/picotool seal --sign
-            {{ pico_fido2_dir }}/pico_fido2.uf2 {{ dist }}/pico_fido2.{{ key_name }}.signed.uf2
-            {{ sign_tmp_key }} {{ dist }}/seal-{{ key_name }}.json
+            {{ picofido2_dir }}/pico_fido2.uf2 {{ dist }}/pico_fido2.{{ key_name }}.signed.uf2
+            {{ sign_tmp_key.path }} {{ dist }}/seal-{{ key_name }}.json
           changed_when: true
 
       always:
         - name: "Sign firmware: remove temp key"
           ansible.builtin.file:
-            path: "{{ sign_tmp_key }}"
+            path: "{{ sign_tmp_key.path }}"
             state: absent

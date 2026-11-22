@@ -19,9 +19,15 @@
         key_name: key1
 
     - name: "Sign firmware: read seal outputs"
+      ansible.builtin.slurp:
+        src: "{{ dist }}/seal-key{{ item }}.json"
+      loop: [0, 1]
+      register: seal_raw
+
+    - name: "Sign firmware: parse seal outputs"
       ansible.builtin.set_fact:
-        seal0: "{{ lookup('ansible.builtin.file', dist ~ '/seal-key0.json') | from_json }}"
-        seal1: "{{ lookup('ansible.builtin.file', dist ~ '/seal-key1.json') | from_json }}"
+        seal0: "{{ seal_raw.results[0].content | b64decode | from_json }}"
+        seal1: "{{ seal_raw.results[1].content | b64decode | from_json }}"
 
     - name: "Sign firmware: sanity checks"
       ansible.builtin.assert:
