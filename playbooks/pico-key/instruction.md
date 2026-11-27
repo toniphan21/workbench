@@ -67,32 +67,101 @@ Make sure **only one** Pico is connected:
 
 ## Step 0 — test the firmware (nothing burned)
 
-1. BOOTSEL mode, then copy the unsigned firmware:
+### 0.1 Prerequisites (macOS)
 
-   ```bash
-   cp pico_fido2.uf2 /Volumes/RP2350/
-   ```
+Apple's OpenSSH has no FIDO support. Use MacPorts:
 
-   The Pico reboots into pico-fido2 and the drive disappears.
+```bash
+sudo port install libfido2 openssh +fido2
+hash -r                       # zsh may still have /usr/bin/ssh-keygen cached
+whence -p ssh-keygen          # must print /opt/local/bin/ssh-keygen
+```
 
-2. Check it from the usage side:
+Apple's launchd `ssh-agent` can't hold `-sk` keys. Use `/opt/local/bin/ssh-agent` if you need an agent.
 
-   ```bash
-   fido2-token -L                                  # the Pico is listed
-   ssh-keygen -t ed25519-sk -f /tmp/pico-test      # asks for PIN, LED blinks, press BOOTSEL button
-   ```
+### 0.2 Wipe the flash (twice)
 
-3. Repeat with the signed image. Secure boot is still off, so it must behave
-   exactly the same:
+Flashing a UF2 does **not** clear pico-fido's data (master secret, PIN, resident
+keys, PHY settings). They live in a separate partition that the firmware's
+partition table protects from BOOTSEL mode, so the first erase stops at it.
 
-   ```bash
-   cp pico_fido2.key0.signed.uf2 /Volumes/RP2350/
-   ```
+```bash
+# BOOTSEL mode (unplug, hold BOOTSEL, plug in)
+./picotool/picotool info -d                          # flash size: 4096K
+./picotool/picotool erase -r 0x10000000 0x10400000   # stops at ~25% with "permission failure"
 
-   If drag-and-drop misbehaves, use
-   `./picotool/picotool load -x pico_fido2.key0.signed.uf2`.
+# BOOTSEL mode again: the partition table is gone now
+./picotool/picotool partition info                   # no partition table
+./picotool/picotool erase -r 0x10000000 0x10400000   # must reach 100%
 
-**Stop if** either image doesn't work. Fix the build before going further.
+# verify blank: must print 0
+./picotool/picotool save -r 0x10000000 0x10400000 /tmp/flash.bin
+LC_ALL=C tr -d '\377' < /tmp/flash.bin | wc -c
+rm /tmp/flash.bin
+```
+
+### 0.3 Flash and check a clean device
+
+```bash
+cp pico_fido2.uf2 /Volumes/RP2350/        # or: ./picotool/picotool load -v -x pico_fido2.uf2
+
+DEV=$(fido2-token -L | head -1 | awk -F': ' '{print $1}')   # path changes on every replug
+fido2-token -I "$DEV" | grep options      # must show noclientPin
+```
+
+### 0.4 PIN and resident SSH key
+
+```bash
+fido2-token -S "$DEV"                     # set PIN
+/opt/local/bin/ssh-keygen -t ed25519-sk -O resident -O application=ssh:main -C pico -f ./sk
+fido2-token -L -r "$DEV"                  # PIN → shows ssh:main
+```
+
+### 0.5 Button press test
+
+The firmware patch makes a press required (15 s timeout). Upstream default is
+`up_btn = 0`, which auto-confirms presence.
+
+```bash
+echo hello > msg
+rm -f msg.sig && /opt/local/bin/ssh-keygen -Y sign -f ./sk -n file msg
+# press BOOTSEL when the LED blinks → writes msg.sig
+rm -f msg.sig && /opt/local/bin/ssh-keygen -Y sign -f ./sk -n file msg
+# don't press → must FAIL after ~15 s
+```
+
+### 0.6 Key lives on the Pico
+
+```bash
+# unplugged: must fail
+ssh -i ./sk -o IdentitiesOnly=yes -o PasswordAuthentication=no user@host
+
+# plugged in, files deleted: recover from the token
+mkdir /tmp/rk && cd /tmp/rk
+/opt/local/bin/ssh-keygen -K              # PIN → id_ed25519_sk_rk_main(.pub)
+ssh-keygen -lf id_ed25519_sk_rk_main.pub  # fingerprint must match sk.pub
+```
+
+Optional browser test: webauthn.io or demo.yubico.com/webauthn-technical. With
+user verification set to "discouraged" and the username entered, login must
+need only a press (UP=true, UV=false).
+
+### 0.7 Repeat with the signed image
+
+Secure boot is still off, so it must behave exactly the same. Redo 0.2–0.6 with:
+
+```bash
+cp pico_fido2.key0.signed.uf2 /Volumes/RP2350/
+```
+
+Confirm the signed image is what's on the chip (see below).
+
+### 0.8 Clean up
+
+- Remove test public keys from `authorized_keys` on every server you used.
+- Delete test credentials: `fido2-token -D -i '<cred-id>' "$DEV"`, or just do the wipe in 0.2.
+
+**Stop if** any check fails. Fix the build before going further.
 
 ---
 

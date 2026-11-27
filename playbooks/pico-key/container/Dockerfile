@@ -27,6 +27,15 @@ RUN git clone https://github.com/librekeys/pico-fido2 \
  && git -C pico-fido2 checkout "$picofido2_ref" \
  && git -C pico-fido2 submodule update --init --recursive
 
+# require a button press by default (15 s); a config value of 0 can't disable it
+RUN f=pico-fido2/pico-keys-sdk/src/main.c \
+ && sed -i \
+      -e 's/uint32_t button_timeout = 0;/uint32_t button_timeout = 15000;/' \
+      -e 's/if (phy_data.up_btn_present) {/if (phy_data.up_btn_present \&\& phy_data.up_btn > 0) {/' \
+      "$f" \
+ && grep -q 'button_timeout = 15000;' "$f" \
+ && grep -q 'up_btn_present && phy_data.up_btn > 0' "$f"
+
 # build firmware
 RUN cmake -S pico-fido2 -B pico-fido2/build \
       -DPICO_BOARD=pico2 \
