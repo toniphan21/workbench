@@ -156,7 +156,28 @@ cp pico_fido2.key0.signed.uf2 /Volumes/RP2350/
 
 Confirm the signed image is what's on the chip (see below).
 
-### 0.8 Clean up
+### 0.8 Checking that the signed image is on the chip
+
+In BOOTSEL mode, compare the chip with the file:
+
+```bash
+./picotool/picotool verify pico_fido2.key0.signed.uf2    # must pass
+./picotool/picotool verify pico_fido2.uf2                # must FAIL (signature block differs)
+```
+
+Verify reads the program area back and compares it byte for byte with the
+file. Only the program area is checked, so the protected data partition
+doesn't get in the way. If the signed file passes and the unsigned one fails,
+the signed image is what's running.
+
+To look at the image details:
+
+```bash
+./picotool/picotool info -a                               # what's on the chip
+./picotool/picotool info -a pico_fido2.key0.signed.uf2    # what's in the file
+```
+
+### 0.9 Clean up
 
 - Remove test public keys from `authorized_keys` on every server you used.
 - Delete test credentials: `fido2-token -D -i '<cred-id>' "$DEV"`, or just do the wipe in 0.2.
