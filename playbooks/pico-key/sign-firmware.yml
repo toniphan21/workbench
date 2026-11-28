@@ -45,7 +45,7 @@
           bootkey1: "{{ seal1.bootkey0 }}"
           boot_flags1: { key_valid: 3 }      # 0b0011
         otp_stage2: # enable secure boot (IRREVERSIBLE)
-          crit1: "{{ seal0.crit1 }}"
+          crit1: { secure_boot_enable: 1, debug_disable: 1, secure_debug_disable: 1, glitch_detector_enable: 1, glitch_detector_sens: 3 }
         otp_stage3: # kill slots 2+3
           boot_flags1: { key_invalid: 12 }   # 0b1100
         otp_stage4: # page locks, via `picotool otp permissions --sign`

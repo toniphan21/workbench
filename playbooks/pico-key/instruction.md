@@ -204,12 +204,21 @@ wrong, the board still works, and nothing is enforced against a bad value.
 ```bash
 ./picotool/picotool otp load otp-stage-1-add-keys.json
 ./picotool/picotool otp get bootkey0 bootkey1 boot_flags1
+./picotool/picotool otp get bootkey0_{0..15} bootkey1_{0..15} | grep -E "^ROW|VALUE"
 ```
 
 Compare `bootkey0` and `bootkey1` with the hashes from the seal files:
 
 ```bash
-python3 -c 'import json;[print(f"key{i}:",bytes(json.load(open(f"seal-key{i}.json"))["bootkey0"]).hex()) for i in (0,1)]'
+python3 -c '
+import json
+[print(f"key{i}:",bytes(json.load(open(f"seal-key{i}.json"))["bootkey0"]).hex()) for i in (0,1)]
+for i in (0, 1):
+    h = bytes(json.load(open(f"seal-key{i}.json"))["bootkey0"])
+    for r in range(16):
+        print(f"ROW 0x{0x80 + 16*i + r:04x}: OTP_DATA_BOOTKEY{i}_{r} (Part {r+1}/16)")
+        print(f"    VALUE 0x{h[2*r] | h[2*r+1] << 8:04x}")
+'
 ```
 
 Each OTP row holds 2 bytes of the hash. `BOOT_FLAGS1.KEY_VALID` must be `3`
@@ -219,12 +228,12 @@ Each OTP row holds 2 bytes of the hash. `BOOT_FLAGS1.KEY_VALID` must be `3`
 
 ### Stage 2: enable secure boot
 
-**What it does:** sets `SECURE_BOOT_ENABLE` in `CRIT1`.
+**What it does:** sets `SECURE_BOOT_ENABLE`, `DEBUG_DISABLE` and
+`SECURE_DEBUG_DISABLE` in `CRIT1`.
 
-**Effect:** from the next boot on, the bootrom checks every image before running
-it: the public key inside the image must match a hash in a valid slot, and the
-signature must be correct. Anything else doesn't boot. BOOTSEL mode still works,
-so you can always copy a new (signed) image over.
+**Effect:** only signed images boot, and the SWD debug port is off for good.
+Without the debug lock, anyone with a debug probe could halt the chip in
+Secure mode and read the master key straight out of OTP, secure boot or not.
 
 This is what keeps the master key safe: pico-fido2 stores it in OTP, readable
 only by code running in Secure mode, and only your signed firmware can run there
@@ -232,6 +241,13 @@ now. Without secure boot, anyone could flash a program that reads the master key
 out.
 
 **Permanent:** yes. Secure boot can never be turned off again.
+
+Check before burn:
+
+```bash
+./picotool/picotool info -d | grep -iE "secure boot|debug"
+./picotool/picotool otp get crit1 | grep -E "VALUE|= "
+```
 
 ```bash
 ./picotool/picotool otp load otp-stage-2-enable-secure-boot.json

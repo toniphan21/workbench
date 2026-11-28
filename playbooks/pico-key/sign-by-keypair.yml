@@ -1,6 +1,7 @@
 - name: Sign by keypair
   vars:
     vault_pass_file: "{{ lookup('ansible.builtin.config', 'DEFAULT_VAULT_PASSWORD_FILE') }}"
+    vault_pass: "{{ lookup('ansible.builtin.pipe', vault_pass_file) }}"
   block:
     - name: "Sign by keypair: check for existing vault {{ key_name }}"
       ansible.builtin.stat:
@@ -24,7 +25,7 @@
 
         - name: "Sign by keypair: encrypt and store in dist"
           ansible.builtin.copy:
-            content: "{{ (pico_fido2_key.stdout ~ '\n') | ansible.builtin.vault(vault_pass_file) }}"
+            content: "{{ (pico_fido2_key.stdout ~ '\n') | ansible.builtin.vault(vault_pass) }}"
             dest: "{{ dist }}/{{ key_name }}.pem.vault"
             mode: "0600"
             decrypt: false
@@ -59,7 +60,7 @@
 
         - name: "Sign by keypair: write decrypted key to temp file"
           ansible.builtin.copy:
-            content: "{{ pico_fido2_vault_key.content | b64decode | ansible.builtin.unvault(vault_pass_file) }}"
+            content: "{{ pico_fido2_vault_key.content | b64decode | ansible.builtin.unvault(vault_pass) }}"
             dest: "{{ sign_tmp_key.path }}"
             mode: "0600"
             decrypt: false
